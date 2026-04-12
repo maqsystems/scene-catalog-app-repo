@@ -255,7 +255,7 @@ async def apply_scene_to_entities(
     }
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def _async_setup_services(hass: HomeAssistant) -> bool:
     hass.data.setdefault(DOMAIN, {})
     manager = hass.data[DOMAIN].setdefault("dynamic_manager", DynamicSceneManager(hass))
 
@@ -364,6 +364,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     hass.data[DOMAIN]["services_registered"] = True
     return True
+
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    # Optional YAML fallback: scene_catalog: {}
+    if DOMAIN in config:
+        await _async_setup_services(hass)
+    return True
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    return await _async_setup_services(hass)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

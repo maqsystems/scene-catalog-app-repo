@@ -12,6 +12,18 @@ This repository contains two deliverables:
 3. Restart Home Assistant.
 4. Add integration `Scene Catalog Services` in Devices & Services.
 
+Important:
+If you install only the app (`scene_catalog/`) from Supervisor, Home Assistant services are not automatically registered.
+Services are provided by the integration under `custom_components/scene_catalog`.
+
+If the integration does not appear in the UI search, use this fallback once in `configuration.yaml`:
+
+```yaml
+scene_catalog: {}
+```
+
+Then restart Home Assistant. Services under domain `scene_catalog` will be loaded.
+
 Available services in automations:
 
 - `scene_catalog.apply_scene`
