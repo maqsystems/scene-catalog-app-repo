@@ -42,6 +42,27 @@ SCENES = {
         "transition": 2,
         "palette": [[0.41, 0.31], [0.45, 0.34], [0.5, 0.36], [0.37, 0.29]],
     },
+    "arctic_bloom": {
+        "name": "Arctic Bloom",
+        "kind": "fixed",
+        "brightness": 180,
+        "transition": 2,
+        "palette": [[0.25, 0.27], [0.29, 0.31], [0.33, 0.35], [0.22, 0.24]],
+    },
+    "volcanic_ember": {
+        "name": "Volcanic Ember",
+        "kind": "fixed",
+        "brightness": 175,
+        "transition": 2,
+        "palette": [[0.67, 0.32], [0.62, 0.34], [0.58, 0.36], [0.53, 0.38]],
+    },
+    "forest_mist": {
+        "name": "Forest Mist",
+        "kind": "fixed",
+        "brightness": 150,
+        "transition": 3,
+        "palette": [[0.29, 0.39], [0.26, 0.37], [0.34, 0.43], [0.31, 0.41]],
+    },
 
     # Dynamic scenes
     "aurora_flow": {
@@ -87,6 +108,39 @@ SCENES = {
         "dynamic_transition_range": [2, 7],
         "dynamic_stagger_max": 1.4,
         "palette": [[0.17, 0.16], [0.24, 0.2], [0.31, 0.18], [0.4, 0.23], [0.5, 0.3]],
+    },
+    "moon_tide": {
+        "name": "Moon Tide",
+        "kind": "dynamic",
+        "brightness": 140,
+        "transition": 7,
+        "dynamic_interval": 10,
+        "dynamic_step": 0.55,
+        "dynamic_transition_range": [5, 14],
+        "dynamic_stagger_max": 3.2,
+        "palette": [[0.2, 0.24], [0.24, 0.29], [0.29, 0.34], [0.34, 0.38], [0.28, 0.31]],
+    },
+    "solar_flare": {
+        "name": "Solar Flare",
+        "kind": "dynamic",
+        "brightness": 200,
+        "transition": 5,
+        "dynamic_interval": 6,
+        "dynamic_step": 1.1,
+        "dynamic_transition_range": [2, 9],
+        "dynamic_stagger_max": 1.8,
+        "palette": [[0.69, 0.31], [0.63, 0.33], [0.56, 0.36], [0.49, 0.39], [0.42, 0.34]],
+    },
+    "deep_ocean_pulse": {
+        "name": "Deep Ocean Pulse",
+        "kind": "dynamic",
+        "brightness": 160,
+        "transition": 8,
+        "dynamic_interval": 9,
+        "dynamic_step": 0.7,
+        "dynamic_transition_range": [4, 13],
+        "dynamic_stagger_max": 2.8,
+        "palette": [[0.18, 0.2], [0.2, 0.24], [0.22, 0.28], [0.25, 0.32], [0.27, 0.35]],
     },
 }
 

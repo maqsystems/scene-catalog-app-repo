@@ -15,6 +15,9 @@ apply_scene:
             - sunset_ribbon
             - emerald_garden
             - mauve_twilight
+            - arctic_bloom
+            - volcanic_ember
+            - forest_mist
     target:
       name: Target
       description: Light targets.
@@ -51,11 +54,16 @@ start_dynamic_scene:
       required: true
       selector:
         select:
+          mode: dropdown
+          multiple: false
           options:
             - aurora_flow
             - prism_drift
             - candle_wave
             - neon_rain
+            - moon_tide
+            - solar_flare
+            - deep_ocean_pulse
     target:
       name: Target
       description: Light targets.
