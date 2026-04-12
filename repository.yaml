@@ -1,0 +1,4 @@
+# Home Assistant app repository definition
+name: Scene Catalog App Repository
+url: "https://github.com/maqsystems/scene-catalog-app-repo"
+maintainer: maqsystems

@@ -1,0 +1,7 @@
+#!/usr/bin/with-contenv bashio
+# Start the Scene Catalog HTTP app
+
+export SCENE_CATALOG_DEFAULT_TARGETS
+SCENE_CATALOG_DEFAULT_TARGETS="$(bashio::config 'default_targets')"
+
+exec /usr/bin/python3 /opt/scene_catalog/app.py
