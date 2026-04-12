@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- Disable AppArmor profile for initial install reliability
+
 ## 0.1.0
 
 - Initial minimal app release

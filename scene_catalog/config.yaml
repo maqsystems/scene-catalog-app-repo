@@ -1,6 +1,6 @@
 name: Scene Catalog App
 slug: scene_catalog
-version: "0.1.0"
+version: "0.1.1"
 description: Apply simple curated light scenes from a small catalog
 url: "https://github.com/maqsystems/scene-catalog-app-repo/tree/main/scene_catalog"
 startup: application
@@ -11,6 +11,7 @@ panel_icon: mdi:palette
 panel_title: Scene Catalog
 homeassistant_api: true
 hassio_api: false
+apparmor: false
 arch:
   - aarch64
   - amd64
