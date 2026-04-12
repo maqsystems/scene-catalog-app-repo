@@ -1,0 +1,14 @@
+{
+  "domain": "scene_catalog",
+  "name": "Scene Catalog Services",
+  "version": "0.1.0",
+  "documentation": "https://github.com/maqsystems/scene-catalog-app-repo",
+  "issue_tracker": "https://github.com/maqsystems/scene-catalog-app-repo/issues",
+  "codeowners": [
+    "@maqsystems"
+  ],
+  "integration_type": "service",
+  "config_flow": true,
+  "iot_class": "calculated",
+  "requirements": []
+}

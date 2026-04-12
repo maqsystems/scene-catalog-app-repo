@@ -1,0 +1,14 @@
+{
+  "title": "Scene Catalog Services",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Scene Catalog Services",
+        "description": "Enable scene services for automations."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single instance is allowed."
+    }
+  }
+}

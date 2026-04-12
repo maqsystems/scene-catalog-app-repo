@@ -1,0 +1,15 @@
+DOMAIN = "scene_catalog"
+NAME = "Scene Catalog Services"
+
+ATTR_SCENE = "scene"
+ATTR_TARGET = "target"
+ATTR_INTERVAL = "interval"
+ATTR_TRANSITION = "transition"
+ATTR_BRIGHTNESS = "brightness"
+ATTR_DYNAMIC_ID = "id"
+
+SERVICE_APPLY_SCENE = "apply_scene"
+SERVICE_START_DYNAMIC_SCENE = "start_dynamic_scene"
+SERVICE_STOP_DYNAMIC_SCENE = "stop_dynamic_scene"
+SERVICE_STOP_ALL_DYNAMIC_SCENES = "stop_all_dynamic_scenes"
+SERVICE_LIST_SCENES = "list_scenes"
