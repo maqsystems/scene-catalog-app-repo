@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Remove apparmor.txt entirely to avoid Supervisor profile load failure on install
+
 ## 0.1.1
 
 - Disable AppArmor profile for initial install reliability
