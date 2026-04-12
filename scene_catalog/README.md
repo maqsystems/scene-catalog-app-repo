@@ -5,9 +5,10 @@ You pick a scene and target lights, then it calls Home Assistant `light.turn_on`
 
 ## Features
 
-- Small built-in catalog (Relax, Focus, Sunset)
-- Simple ingress UI
-- Applies scene to one or multiple light entities
+- Built-in palette catalog inspired by cinematic Hue-like moods
+- Fixed scenes distribute palette colors across selected lights
+- Dynamic scenes rotate palette distribution over time across the same lights
+- Simple ingress UI with light multi-select
 
 ## Install
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Add palette-based scenes that distribute different colors across selected lights
+- Add dynamic scenes that rotate palette distribution over time
+- Add Start Dynamic / Stop Dynamic controls in the ingress UI
+- Add per-light apply feedback (partial success/error details)
+
 ## 0.1.5
 
 - Auto-discover `light.*` entities from Home Assistant API

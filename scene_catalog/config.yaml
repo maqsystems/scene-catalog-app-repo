@@ -1,6 +1,6 @@
 name: Scene Catalog App
 slug: scene_catalog_v2
-version: "0.1.5"
+version: "0.2.0"
 description: Apply simple curated light scenes from a small catalog
 url: "https://github.com/maqsystems/scene-catalog-app-repo/tree/main/scene_catalog"
 startup: application

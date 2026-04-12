@@ -1,6 +1,9 @@
 import html
 import json
+import math
 import os
+import threading
+import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlparse
@@ -10,25 +13,160 @@ HOST = "0.0.0.0"
 PORT = 8099
 
 SCENES = {
-    "relax": {
-        "name": "Relax",
-        "xy_color": [0.5019, 0.4152],
-        "brightness": 143,
+    "golden_lounge": {
+        "name": "Golden Lounge",
+        "brightness": 155,
         "transition": 1,
+        "palette": [
+            [0.585, 0.385],
+            [0.54, 0.405],
+            [0.502, 0.415],
+        ],
     },
-    "focus": {
-        "name": "Focus",
+    "coastal_breeze": {
+        "name": "Coastal Breeze",
+        "brightness": 185,
+        "transition": 1,
+        "palette": [
+            [0.28, 0.29],
+            [0.24, 0.26],
+            [0.21, 0.22],
+            [0.33, 0.34],
+        ],
+    },
+    "studio_focus": {
+        "name": "Studio Focus",
         "xy_color": [0.368, 0.3686],
         "brightness": 254,
         "transition": 1,
+        "palette": [
+            [0.37, 0.37],
+            [0.34, 0.36],
+            [0.39, 0.39],
+        ],
     },
-    "sunset": {
-        "name": "Sunset",
-        "xy_color": [0.5805, 0.3899],
-        "brightness": 180,
+    "sunset_ribbon": {
+        "name": "Sunset Ribbon",
+        "brightness": 170,
         "transition": 2,
+        "palette": [
+            [0.62, 0.35],
+            [0.57, 0.37],
+            [0.53, 0.39],
+            [0.49, 0.41],
+        ],
+    },
+    "aurora_flow": {
+        "name": "Aurora Flow (Dynamic)",
+        "brightness": 170,
+        "transition": 5,
+        "dynamic_interval": 7,
+        "dynamic_step": 0.65,
+        "palette": [
+            [0.17, 0.18],
+            [0.22, 0.29],
+            [0.31, 0.21],
+            [0.37, 0.28],
+            [0.45, 0.24],
+        ],
+    },
+    "prism_drift": {
+        "name": "Prism Drift (Dynamic)",
+        "brightness": 165,
+        "transition": 6,
+        "dynamic_interval": 8,
+        "dynamic_step": 0.8,
+        "palette": [
+            [0.63, 0.34],
+            [0.51, 0.41],
+            [0.43, 0.45],
+            [0.34, 0.33],
+            [0.24, 0.25],
+        ],
     },
 }
+
+
+class DynamicSceneRunner:
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._thread = None
+        self._stop_event = threading.Event()
+        self._active = {
+            "running": False,
+            "scene_key": None,
+            "entity_ids": [],
+            "interval": 0,
+            "transition": None,
+        }
+
+    def status(self) -> dict:
+        with self._lock:
+            return {
+                "running": self._active["running"],
+                "scene_key": self._active["scene_key"],
+                "entity_ids": list(self._active["entity_ids"]),
+                "interval": self._active["interval"],
+                "transition": self._active["transition"],
+            }
+
+    def stop(self) -> bool:
+        with self._lock:
+            if not self._active["running"]:
+                return False
+            self._stop_event.set()
+
+        if self._thread is not None:
+            self._thread.join(timeout=2)
+
+        with self._lock:
+            self._active = {
+                "running": False,
+                "scene_key": None,
+                "entity_ids": [],
+                "interval": 0,
+                "transition": None,
+            }
+            self._thread = None
+            self._stop_event.clear()
+
+        return True
+
+    def start(self, scene_key: str, entity_ids: list[str], interval: int, transition: int | None):
+        self.stop()
+
+        with self._lock:
+            self._active = {
+                "running": True,
+                "scene_key": scene_key,
+                "entity_ids": list(entity_ids),
+                "interval": interval,
+                "transition": transition,
+            }
+
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    def _loop(self):
+        frame = 0
+        while not self._stop_event.is_set():
+            with self._lock:
+                scene_key = self._active["scene_key"]
+                entity_ids = list(self._active["entity_ids"])
+                interval = max(1, int(self._active["interval"]))
+                transition = self._active["transition"]
+
+            try:
+                apply_scene_to_entities(entity_ids, scene_key, dynamic=True, frame=frame, transition_override=transition)
+            except Exception as err:
+                print(f"Dynamic scene error: {err}", flush=True)
+
+            frame += 1
+            if self._stop_event.wait(interval):
+                break
+
+
+DYNAMIC_RUNNER = DynamicSceneRunner()
 
 
 def supervisor_token() -> str:
@@ -65,24 +203,74 @@ def get_light_entities() -> list[dict]:
     return lights
 
 
-def api_call_light_turn_on(entity_ids: list[str], scene_key: str):
+def scene_palette_color(palette: list[list[float]], index: int, total: int, phase: float = 0.0) -> list[float]:
+    if not palette:
+        return [0.35, 0.35]
+
+    if total <= 1:
+        return palette[int(math.floor(phase)) % len(palette)]
+
+    spread = (index / total) * len(palette)
+    palette_index = int(math.floor(spread + phase)) % len(palette)
+    return palette[palette_index]
+
+
+def apply_scene_to_entities(
+    entity_ids: list[str],
+    scene_key: str,
+    dynamic: bool = False,
+    frame: int = 0,
+    transition_override: int | None = None,
+) -> tuple[int, list[str]]:
     scene = SCENES[scene_key]
-    payload = {
-        "entity_id": entity_ids,
-        "xy_color": scene["xy_color"],
-        "brightness": scene["brightness"],
-        "transition": scene["transition"],
-    }
+    palette = scene.get("palette", [])
+    brightness = int(scene.get("brightness", 180))
+
+    base_transition = int(scene.get("transition", 1))
+    transition = int(transition_override) if transition_override is not None else base_transition
+
+    phase = 0.0
+    if dynamic:
+        phase = float(scene.get("dynamic_step", 0.6)) * frame
+
+    success = 0
+    errors = []
+
+    for idx, entity_id in enumerate(entity_ids):
+        color = scene_palette_color(palette, idx, len(entity_ids), phase=phase)
+
+        payload = {
+            "entity_id": entity_id,
+            "xy_color": color,
+            "brightness": brightness,
+            "transition": transition,
+        }
 
     req = Request(
         "http://supervisor/core/api/services/light/turn_on",
-        data=json.dumps(payload).encode("utf-8"),
-        headers=core_api_headers(),
-        method="POST",
+            data=json.dumps(payload).encode("utf-8"),
+            headers=core_api_headers(),
+            method="POST",
     )
 
-    with urlopen(req, timeout=15) as resp:
-        return resp.status, resp.read().decode("utf-8")
+        try:
+            with urlopen(req, timeout=15) as resp:
+                if 200 <= resp.status < 300:
+                    success += 1
+                else:
+                    errors.append(f"{entity_id}: status {resp.status}")
+        except Exception as err:
+            errors.append(f"{entity_id}: {err}")
+
+    return success, errors
+
+
+def parse_positive_int(value: str, default_value: int) -> int:
+    try:
+        parsed = int(value)
+        return parsed if parsed > 0 else default_value
+    except Exception:
+        return default_value
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -90,14 +278,35 @@ class Handler(BaseHTTPRequestHandler):
     def _request_path(raw_path: str) -> str:
         return urlparse(raw_path).path
 
-    def _render(self, message: str = "", selected_targets: list[str] | None = None):
+    def _render(
+        self,
+        message: str = "",
+        selected_targets: list[str] | None = None,
+        selected_scene: str | None = None,
+        interval_value: int | None = None,
+        transition_value: int | None = None,
+    ):
         default_targets = os.environ.get("SCENE_CATALOG_DEFAULT_TARGETS", "light.living_room")
         selected_targets = selected_targets or [x.strip() for x in default_targets.split(",") if x.strip()]
         selected_targets_set = set(selected_targets)
+        if selected_scene is None:
+            selected_scene = next(iter(SCENES.keys()))
 
-        scene_options = "".join(
-            f"<option value='{k}'>{html.escape(v['name'])}</option>" for k, v in SCENES.items()
-        )
+        status = DYNAMIC_RUNNER.status()
+
+        scene_options = ""
+        for key, data in SCENES.items():
+            marker = " (Dynamic)" if "dynamic_interval" in data else ""
+            selected_attr = " selected" if key == selected_scene else ""
+            scene_options += (
+                f"<option value='{html.escape(key)}'{selected_attr}>"
+                f"{html.escape(data['name'])}{marker}</option>"
+            )
+
+        if interval_value is None:
+            interval_value = int(SCENES.get(selected_scene, {}).get("dynamic_interval", 8))
+        if transition_value is None:
+            transition_value = int(SCENES.get(selected_scene, {}).get("transition", 2))
 
         lights = []
         lights_error = ""
@@ -145,14 +354,19 @@ class Handler(BaseHTTPRequestHandler):
     button {{ margin-top: 16px; padding: 10px 14px; cursor: pointer; }}
     .msg {{ margin-bottom: 12px; color: #1f6f3d; }}
         .warn {{ margin-top: 8px; color: #a15b00; }}
+        .status {{ margin-bottom: 12px; font-size: 14px; color: #1f2a44; }}
+        .row {{ display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }}
+        .actions {{ display: flex; gap: 10px; flex-wrap: wrap; }}
+        .actions button {{ margin-top: 0; }}
   </style>
 </head>
 <body>
   <div class='card'>
     <h2>Scene Catalog</h2>
-        <p>Pick a scene and target lights.</p>
+        <p>Pick a palette scene and target lights. Colors are spread across selected lights.</p>
+        <div class='status'>Dynamic status: {html.escape(str(status))}</div>
     <div class='msg'>{html.escape(message)}</div>
-        <form method='post' action='apply'>
+                <form method='post' action='apply'>
       <label for='scene'>Scene</label>
       <select name='scene' id='scene'>{scene_options}</select>
 
@@ -160,7 +374,22 @@ class Handler(BaseHTTPRequestHandler):
             {selected_field}
             <div class='warn'>{html.escape(lights_error)}</div>
 
-      <button type='submit'>Apply Scene</button>
+            <div class='row'>
+                <div>
+                    <label for='interval'>Dynamic interval (seconds)</label>
+                    <input name='interval' id='interval' value='{interval_value}' />
+                </div>
+                <div>
+                    <label for='transition'>Transition (seconds)</label>
+                    <input name='transition' id='transition' value='{transition_value}' />
+                </div>
+            </div>
+
+            <div class='actions'>
+                <button type='submit' name='action' value='apply_fixed'>Apply Fixed Scene</button>
+                <button type='submit' name='action' value='start_dynamic'>Start Dynamic Scene</button>
+                <button type='submit' name='action' value='stop_dynamic'>Stop Dynamic Scene</button>
+            </div>
     </form>
   </div>
 </body>
@@ -190,11 +419,25 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         raw = self.rfile.read(length).decode("utf-8")
         form = parse_qs(raw)
+        action = (form.get("action", ["apply_fixed"])[0] or "apply_fixed").strip()
 
         scene = (form.get("scene", [""])[0] or "").strip().lower()
+        interval_value = parse_positive_int((form.get("interval", ["8"])[0] or "8").strip(), 8)
+        transition_value = parse_positive_int((form.get("transition", ["2"])[0] or "2").strip(), 2)
+
+        if action == "stop_dynamic":
+            stopped = DYNAMIC_RUNNER.stop()
+            msg = "Dynamic scene stopped." if stopped else "No dynamic scene was running."
+            self._render(msg, interval_value=interval_value, transition_value=transition_value)
+            return
 
         if scene not in SCENES:
-            self._render("Unknown scene selected.")
+            self._render(
+                "Unknown scene selected.",
+                selected_scene=scene,
+                interval_value=interval_value,
+                transition_value=transition_value,
+            )
             return
 
         raw_targets = [x.strip() for x in form.get("targets", []) if x.strip()]
@@ -204,28 +447,66 @@ class Handler(BaseHTTPRequestHandler):
             entity_ids = raw_targets
 
         if not entity_ids:
-            self._render("Please select at least one light.")
+            self._render(
+                "Please select at least one light.",
+                selected_scene=scene,
+                interval_value=interval_value,
+                transition_value=transition_value,
+            )
             return
 
         if not supervisor_token():
-            self._render("SUPERVISOR_TOKEN missing. Enable Home Assistant API access in app config.")
+            self._render(
+                "SUPERVISOR_TOKEN missing. Enable Home Assistant API access in app config.",
+                selected_targets=entity_ids,
+                selected_scene=scene,
+                interval_value=interval_value,
+                transition_value=transition_value,
+            )
             return
 
         try:
-            status, _ = api_call_light_turn_on(entity_ids, scene)
-            if 200 <= status < 300:
+            if action == "start_dynamic":
+                DYNAMIC_RUNNER.start(scene, entity_ids, interval_value, transition_value)
                 self._render(
-                    f"Applied '{SCENES[scene]['name']}' to {', '.join(entity_ids)}",
+                    f"Started dynamic scene '{SCENES[scene]['name']}' on {', '.join(entity_ids)}",
                     selected_targets=entity_ids,
+                    selected_scene=scene,
+                    interval_value=interval_value,
+                    transition_value=transition_value,
                 )
             else:
-                self._render(f"Call failed with status {status}", selected_targets=entity_ids)
-        except HTTPError as err:
-            self._render(f"Home Assistant API error: {err.code} {err.reason}", selected_targets=entity_ids)
-        except URLError as err:
-            self._render(f"Network error: {err.reason}", selected_targets=entity_ids)
+                success, errors = apply_scene_to_entities(
+                    entity_ids,
+                    scene,
+                    dynamic=False,
+                    transition_override=transition_value,
+                )
+
+                if errors:
+                    self._render(
+                        f"Applied on {success}/{len(entity_ids)} lights. Errors: {' | '.join(errors)}",
+                        selected_targets=entity_ids,
+                        selected_scene=scene,
+                        interval_value=interval_value,
+                        transition_value=transition_value,
+                    )
+                else:
+                    self._render(
+                        f"Applied '{SCENES[scene]['name']}' on {success} lights.",
+                        selected_targets=entity_ids,
+                        selected_scene=scene,
+                        interval_value=interval_value,
+                        transition_value=transition_value,
+                    )
         except Exception as err:
-            self._render(f"Unexpected error: {err}", selected_targets=entity_ids)
+            self._render(
+                f"Unexpected error: {err}",
+                selected_targets=entity_ids,
+                selected_scene=scene,
+                interval_value=interval_value,
+                transition_value=transition_value,
+            )
 
 
 if __name__ == "__main__":
