@@ -246,12 +246,12 @@ def apply_scene_to_entities(
             "transition": transition,
         }
 
-    req = Request(
-        "http://supervisor/core/api/services/light/turn_on",
+        req = Request(
+            "http://supervisor/core/api/services/light/turn_on",
             data=json.dumps(payload).encode("utf-8"),
             headers=core_api_headers(),
             method="POST",
-    )
+        )
 
         try:
             with urlopen(req, timeout=15) as resp:

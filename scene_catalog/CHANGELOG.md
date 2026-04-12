@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- Fix Python indentation in scene apply loop causing startup crash (`IndentationError`)
+
 ## 0.2.0
 
 - Add palette-based scenes that distribute different colors across selected lights
