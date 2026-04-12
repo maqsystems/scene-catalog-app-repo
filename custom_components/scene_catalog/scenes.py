@@ -1,72 +1,94 @@
 SCENES = {
+    # Fixed scenes
     "golden_lounge": {
         "name": "Golden Lounge",
+        "kind": "fixed",
         "brightness": 155,
         "transition": 1,
-        "palette": [
-            [0.585, 0.385],
-            [0.54, 0.405],
-            [0.502, 0.415]
-        ]
+        "palette": [[0.585, 0.385], [0.54, 0.405], [0.502, 0.415]],
     },
     "coastal_breeze": {
         "name": "Coastal Breeze",
+        "kind": "fixed",
         "brightness": 185,
         "transition": 1,
-        "palette": [
-            [0.28, 0.29],
-            [0.24, 0.26],
-            [0.21, 0.22],
-            [0.33, 0.34]
-        ]
+        "palette": [[0.28, 0.29], [0.24, 0.26], [0.21, 0.22], [0.33, 0.34]],
     },
     "studio_focus": {
         "name": "Studio Focus",
+        "kind": "fixed",
         "brightness": 254,
         "transition": 1,
-        "palette": [
-            [0.37, 0.37],
-            [0.34, 0.36],
-            [0.39, 0.39]
-        ]
+        "palette": [[0.37, 0.37], [0.34, 0.36], [0.39, 0.39]],
     },
     "sunset_ribbon": {
         "name": "Sunset Ribbon",
+        "kind": "fixed",
         "brightness": 170,
         "transition": 2,
-        "palette": [
-            [0.62, 0.35],
-            [0.57, 0.37],
-            [0.53, 0.39],
-            [0.49, 0.41]
-        ]
+        "palette": [[0.62, 0.35], [0.57, 0.37], [0.53, 0.39], [0.49, 0.41]],
     },
+    "emerald_garden": {
+        "name": "Emerald Garden",
+        "kind": "fixed",
+        "brightness": 165,
+        "transition": 2,
+        "palette": [[0.26, 0.43], [0.24, 0.39], [0.31, 0.45], [0.35, 0.42]],
+    },
+    "mauve_twilight": {
+        "name": "Mauve Twilight",
+        "kind": "fixed",
+        "brightness": 145,
+        "transition": 2,
+        "palette": [[0.41, 0.31], [0.45, 0.34], [0.5, 0.36], [0.37, 0.29]],
+    },
+
+    # Dynamic scenes
     "aurora_flow": {
         "name": "Aurora Flow",
+        "kind": "dynamic",
         "brightness": 170,
         "transition": 5,
         "dynamic_interval": 7,
         "dynamic_step": 0.65,
-        "palette": [
-            [0.17, 0.18],
-            [0.22, 0.29],
-            [0.31, 0.21],
-            [0.37, 0.28],
-            [0.45, 0.24]
-        ]
+        "dynamic_transition_range": [3, 8],
+        "dynamic_stagger_max": 2.0,
+        "palette": [[0.17, 0.18], [0.22, 0.29], [0.31, 0.21], [0.37, 0.28], [0.45, 0.24]],
     },
     "prism_drift": {
         "name": "Prism Drift",
+        "kind": "dynamic",
         "brightness": 165,
         "transition": 6,
         "dynamic_interval": 8,
         "dynamic_step": 0.8,
-        "palette": [
-            [0.63, 0.34],
-            [0.51, 0.41],
-            [0.43, 0.45],
-            [0.34, 0.33],
-            [0.24, 0.25]
-        ]
-    }
+        "dynamic_transition_range": [4, 10],
+        "dynamic_stagger_max": 2.4,
+        "palette": [[0.63, 0.34], [0.51, 0.41], [0.43, 0.45], [0.34, 0.33], [0.24, 0.25]],
+    },
+    "candle_wave": {
+        "name": "Candle Wave",
+        "kind": "dynamic",
+        "brightness": 135,
+        "transition": 7,
+        "dynamic_interval": 9,
+        "dynamic_step": 0.45,
+        "dynamic_transition_range": [5, 12],
+        "dynamic_stagger_max": 3.0,
+        "palette": [[0.62, 0.35], [0.57, 0.37], [0.53, 0.39], [0.5, 0.41], [0.47, 0.42]],
+    },
+    "neon_rain": {
+        "name": "Neon Rain",
+        "kind": "dynamic",
+        "brightness": 190,
+        "transition": 4,
+        "dynamic_interval": 6,
+        "dynamic_step": 1.0,
+        "dynamic_transition_range": [2, 7],
+        "dynamic_stagger_max": 1.4,
+        "palette": [[0.17, 0.16], [0.24, 0.2], [0.31, 0.18], [0.4, 0.23], [0.5, 0.3]],
+    },
 }
+
+FIXED_SCENE_KEYS = [k for k, v in SCENES.items() if v.get("kind") == "fixed"]
+DYNAMIC_SCENE_KEYS = [k for k, v in SCENES.items() if v.get("kind") == "dynamic"]

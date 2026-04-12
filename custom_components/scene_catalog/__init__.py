@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import math
+import random
 import uuid
 from dataclasses import dataclass
 
@@ -26,7 +27,7 @@ from .const import (
     SERVICE_STOP_ALL_DYNAMIC_SCENES,
     SERVICE_STOP_DYNAMIC_SCENE,
 )
-from .scenes import SCENES
+from .scenes import DYNAMIC_SCENE_KEYS, FIXED_SCENE_KEYS, SCENES
 
 APPLY_SCENE_SCHEMA = vol.Schema(
     {
@@ -53,9 +54,13 @@ STOP_DYNAMIC_SCENE_SCHEMA = vol.Schema({vol.Required(ATTR_DYNAMIC_ID): cv.string
 @dataclass
 class DynamicScene:
     id: str
-    task: asyncio.Task
+    task: asyncio.Task | None
     scene_key: str
     entity_ids: list[str]
+    interval: int
+    transition: int | None
+    brightness: int | None
+    frame: int = 0
 
 
 class DynamicSceneManager:
@@ -71,33 +76,77 @@ class DynamicSceneManager:
         transition: int | None,
         brightness: int | None,
     ) -> str:
+        if scene_key not in DYNAMIC_SCENE_KEYS:
+            raise vol.Invalid(f"Scene '{scene_key}' is not dynamic")
+
         dynamic_id = str(uuid.uuid4())
+        scene = DynamicScene(
+            id=dynamic_id,
+            task=None,
+            scene_key=scene_key,
+            entity_ids=list(entity_ids),
+            interval=max(1, interval),
+            transition=transition,
+            brightness=brightness,
+            frame=0,
+        )
+        self.scenes[dynamic_id] = scene
 
         async def _runner() -> None:
-            frame = 0
             while True:
+                current = self.scenes.get(dynamic_id)
+                if current is None:
+                    return
+
+                current_entities = list(current.entity_ids)
+                if not current_entities:
+                    self.stop(dynamic_id)
+                    return
+
                 await apply_scene_to_entities(
                     self.hass,
-                    scene_key,
-                    entity_ids,
+                    current.scene_key,
+                    current_entities,
                     dynamic=True,
-                    frame=frame,
-                    transition_override=transition,
-                    brightness_override=brightness,
+                    frame=current.frame,
+                    transition_override=current.transition,
+                    brightness_override=current.brightness,
                 )
-                frame += 1
-                await asyncio.sleep(max(1, interval))
+                current.frame += 1
+                await asyncio.sleep(max(1, current.interval))
 
         task = self.hass.async_create_task(_runner())
-        self.scenes[dynamic_id] = DynamicScene(dynamic_id, task, scene_key, entity_ids)
+        scene.task = task
         return dynamic_id
 
     def stop(self, dynamic_id: str) -> bool:
         scene = self.scenes.pop(dynamic_id, None)
         if not scene:
             return False
-        scene.task.cancel()
+        if scene.task is not None:
+            scene.task.cancel()
         return True
+
+    def remove_entities(self, entity_ids: list[str]) -> dict:
+        removed_set = set(entity_ids)
+        touched_ids = []
+        stopped_ids = []
+
+        for dynamic_id, scene in list(self.scenes.items()):
+            before = set(scene.entity_ids)
+            remaining = [entity_id for entity_id in scene.entity_ids if entity_id not in removed_set]
+            if len(remaining) != len(scene.entity_ids):
+                touched_ids.append(dynamic_id)
+                scene.entity_ids = remaining
+
+            if not scene.entity_ids and before:
+                self.stop(dynamic_id)
+                stopped_ids.append(dynamic_id)
+
+        return {
+            "touched_dynamic_ids": touched_ids,
+            "stopped_dynamic_ids": stopped_ids,
+        }
 
     def stop_all(self) -> int:
         ids = list(self.scenes.keys())
@@ -215,6 +264,20 @@ def _scene_palette_color(palette: list[list[float]], index: int, total: int, pha
     return palette[palette_index]
 
 
+def _scene_kind(scene_key: str) -> str:
+    if scene_key not in SCENES:
+        raise vol.Invalid(f"Unknown scene '{scene_key}'")
+    return SCENES[scene_key].get("kind", "fixed")
+
+
+def _validate_scene_kind(scene_key: str, expected_kind: str) -> None:
+    kind = _scene_kind(scene_key)
+    if kind != expected_kind:
+        raise vol.Invalid(
+            f"Scene '{scene_key}' is '{kind}', expected '{expected_kind}'"
+        )
+
+
 async def apply_scene_to_entities(
     hass: HomeAssistant,
     scene_key: str,
@@ -230,21 +293,38 @@ async def apply_scene_to_entities(
     scene = SCENES[scene_key]
     palette = scene.get("palette", [])
     brightness = int(brightness_override if brightness_override is not None else scene.get("brightness", 180))
-    transition = int(transition_override if transition_override is not None else scene.get("transition", 1))
+    transition = float(transition_override if transition_override is not None else scene.get("transition", 1))
     phase = float(scene.get("dynamic_step", 0.6)) * frame if dynamic else 0.0
+    dynamic_transition_range = scene.get("dynamic_transition_range", [transition, transition])
+    stagger_max = float(scene.get("dynamic_stagger_max", 0.0)) if dynamic else 0.0
 
     tasks = []
+
+    async def _apply_single(payload: dict, delay: float) -> None:
+        if delay > 0:
+            await asyncio.sleep(delay)
+        await hass.services.async_call("light", "turn_on", payload, blocking=False)
+
     for idx, entity_id in enumerate(entity_ids):
         color = _scene_palette_color(palette, idx, len(entity_ids), phase=phase)
+
+        current_transition = transition
+        if dynamic and isinstance(dynamic_transition_range, list) and len(dynamic_transition_range) == 2:
+            low = float(dynamic_transition_range[0])
+            high = float(dynamic_transition_range[1])
+            if low > high:
+                low, high = high, low
+            current_transition = round(random.uniform(low, high), 2)
+
+        delay = round(random.uniform(0, stagger_max), 3) if stagger_max > 0 else 0.0
+
         payload = {
             "entity_id": entity_id,
             "xy_color": color,
             "brightness": brightness,
-            "transition": transition,
+            "transition": current_transition,
         }
-        tasks.append(
-            hass.services.async_call("light", "turn_on", payload, blocking=False)
-        )
+        tasks.append(_apply_single(payload, delay))
 
     await asyncio.gather(*tasks)
     return {
@@ -264,6 +344,8 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
 
     async def _apply_scene(call: ServiceCall):
         scene_key = call.data[ATTR_SCENE]
+        _validate_scene_kind(scene_key, "fixed")
+
         target = call.data[ATTR_TARGET]
         transition = call.data.get(ATTR_TRANSITION)
         brightness = call.data.get(ATTR_BRIGHTNESS)
@@ -271,7 +353,9 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
         if not entity_ids:
             raise vol.Invalid("No light entities resolved from target")
 
-        return await apply_scene_to_entities(
+        dynamic_cleanup = manager.remove_entities(entity_ids)
+
+        result = await apply_scene_to_entities(
             hass,
             scene_key,
             entity_ids,
@@ -279,9 +363,13 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
             transition_override=transition,
             brightness_override=brightness,
         )
+        result["dynamic_cleanup"] = dynamic_cleanup
+        return result
 
     async def _start_dynamic_scene(call: ServiceCall):
         scene_key = call.data[ATTR_SCENE]
+        _validate_scene_kind(scene_key, "dynamic")
+
         target = call.data[ATTR_TARGET]
         interval = max(1, int(call.data.get(ATTR_INTERVAL, SCENES.get(scene_key, {}).get("dynamic_interval", 8))))
         transition = call.data.get(ATTR_TRANSITION)
@@ -307,20 +395,27 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
         return {"stopped_count": stopped_count}
 
     async def _list_scenes(call: ServiceCall):
-        scenes_payload = []
-        for key, value in SCENES.items():
-            scenes_payload.append(
-                {
-                    "key": key,
-                    "name": value.get("name", key),
-                    "dynamic_interval": value.get("dynamic_interval"),
-                    "transition": value.get("transition", 1),
-                    "brightness": value.get("brightness", 180),
-                }
-            )
+        def scene_payload(keys: list[str]) -> list[dict]:
+            payload = []
+            for key in keys:
+                value = SCENES[key]
+                payload.append(
+                    {
+                        "key": key,
+                        "name": value.get("name", key),
+                        "kind": value.get("kind", "fixed"),
+                        "dynamic_interval": value.get("dynamic_interval"),
+                        "dynamic_transition_range": value.get("dynamic_transition_range"),
+                        "dynamic_stagger_max": value.get("dynamic_stagger_max"),
+                        "transition": value.get("transition", 1),
+                        "brightness": value.get("brightness", 180),
+                    }
+                )
+            return payload
 
         return {
-            "scenes": scenes_payload,
+            "fixed_scenes": scene_payload(FIXED_SCENE_KEYS),
+            "dynamic_scenes": scene_payload(DYNAMIC_SCENE_KEYS),
             "dynamic": manager.as_dict(),
         }
 

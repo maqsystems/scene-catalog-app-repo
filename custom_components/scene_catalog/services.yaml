@@ -13,8 +13,8 @@ apply_scene:
             - coastal_breeze
             - studio_focus
             - sunset_ribbon
-            - aurora_flow
-            - prism_drift
+            - emerald_garden
+            - mauve_twilight
     target:
       name: Target
       description: Light targets.
@@ -54,10 +54,8 @@ start_dynamic_scene:
           options:
             - aurora_flow
             - prism_drift
-            - golden_lounge
-            - coastal_breeze
-            - studio_focus
-            - sunset_ribbon
+            - candle_wave
+            - neon_rain
     target:
       name: Target
       description: Light targets.
