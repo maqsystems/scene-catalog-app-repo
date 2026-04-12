@@ -3,7 +3,7 @@ import json
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 from urllib.request import Request, urlopen
 
 HOST = "0.0.0.0"
@@ -59,6 +59,10 @@ def api_call_light_turn_on(entity_ids: list[str], scene_key: str):
 
 
 class Handler(BaseHTTPRequestHandler):
+    @staticmethod
+    def _request_path(raw_path: str) -> str:
+        return urlparse(raw_path).path
+
     def _render(self, message: str = ""):
         default_targets = os.environ.get("SCENE_CATALOG_DEFAULT_TARGETS", "light.living_room")
 
@@ -86,7 +90,7 @@ class Handler(BaseHTTPRequestHandler):
     <h2>Scene Catalog</h2>
     <p>Pick a scene and target lights (comma-separated entity ids).</p>
     <div class='msg'>{html.escape(message)}</div>
-    <form method='post' action='/apply'>
+        <form method='post' action='apply'>
       <label for='scene'>Scene</label>
       <select name='scene' id='scene'>{scene_options}</select>
 
@@ -105,7 +109,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body.encode("utf-8"))
 
     def do_GET(self):
-        if self.path == "/":
+        path = self._request_path(self.path)
+        if path == "/" or path.endswith("/"):
             self._render()
             return
 
@@ -113,7 +118,8 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        if self.path != "/apply":
+        path = self._request_path(self.path)
+        if not path.endswith("/apply"):
             self.send_response(404)
             self.end_headers()
             return
@@ -145,7 +151,7 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._render(f"Call failed with status {status}")
         except HTTPError as err:
-            self._render(f"Home Assistant API error: {err.code}")
+            self._render(f"Home Assistant API error: {err.code} {err.reason}")
         except URLError as err:
             self._render(f"Network error: {err.reason}")
         except Exception as err:

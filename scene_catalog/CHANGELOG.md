@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4
+
+- Fix ingress form routing (`/apply`) that caused 404 when applying a scene
+- Improve displayed Home Assistant API error text
+
 ## 0.1.3
 
 - Rotate addon slug to `scene_catalog_v2` to bypass stale Supervisor AppArmor unload state
