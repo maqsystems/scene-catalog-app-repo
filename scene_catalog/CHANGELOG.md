@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.5
+
+- Auto-discover `light.*` entities from Home Assistant API
+- Replace free text targets with multi-select light picker when discovery works
+- Keep text input fallback if discovery fails
+
 ## 0.1.4
 
 - Fix ingress form routing (`/apply`) that caused 404 when applying a scene

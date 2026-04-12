@@ -35,6 +35,36 @@ def supervisor_token() -> str:
     return os.environ.get("SUPERVISOR_TOKEN", "")
 
 
+def core_api_headers() -> dict:
+    return {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {supervisor_token()}",
+    }
+
+
+def get_light_entities() -> list[dict]:
+    req = Request(
+        "http://supervisor/core/api/states",
+        headers=core_api_headers(),
+        method="GET",
+    )
+
+    with urlopen(req, timeout=15) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+
+    lights = []
+    for state in data:
+        entity_id = state.get("entity_id", "")
+        if not entity_id.startswith("light."):
+            continue
+
+        friendly_name = state.get("attributes", {}).get("friendly_name", entity_id)
+        lights.append({"entity_id": entity_id, "name": friendly_name})
+
+    lights.sort(key=lambda item: item["name"].lower())
+    return lights
+
+
 def api_call_light_turn_on(entity_ids: list[str], scene_key: str):
     scene = SCENES[scene_key]
     payload = {
@@ -47,10 +77,7 @@ def api_call_light_turn_on(entity_ids: list[str], scene_key: str):
     req = Request(
         "http://supervisor/core/api/services/light/turn_on",
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {supervisor_token()}",
-        },
+        headers=core_api_headers(),
         method="POST",
     )
 
@@ -63,12 +90,46 @@ class Handler(BaseHTTPRequestHandler):
     def _request_path(raw_path: str) -> str:
         return urlparse(raw_path).path
 
-    def _render(self, message: str = ""):
+    def _render(self, message: str = "", selected_targets: list[str] | None = None):
         default_targets = os.environ.get("SCENE_CATALOG_DEFAULT_TARGETS", "light.living_room")
+        selected_targets = selected_targets or [x.strip() for x in default_targets.split(",") if x.strip()]
+        selected_targets_set = set(selected_targets)
 
         scene_options = "".join(
             f"<option value='{k}'>{html.escape(v['name'])}</option>" for k, v in SCENES.items()
         )
+
+        lights = []
+        lights_error = ""
+        if supervisor_token():
+            try:
+                lights = get_light_entities()
+            except Exception as err:
+                lights_error = f"Could not load lights from Home Assistant: {err}"
+        else:
+            lights_error = "SUPERVISOR_TOKEN missing. Enable Home Assistant API access in app config."
+
+        selected_field = ""
+        if lights:
+            options = []
+            for light in lights:
+                entity_id = light["entity_id"]
+                selected_attr = " selected" if entity_id in selected_targets_set else ""
+                options.append(
+                    f"<option value='{html.escape(entity_id)}'{selected_attr}>"
+                    f"{html.escape(light['name'])} ({html.escape(entity_id)})</option>"
+                )
+
+            selected_field = (
+                "<select name='targets' id='targets' multiple size='10'>"
+                + "".join(options)
+                + "</select>"
+            )
+        else:
+            selected_field = (
+                f"<input name='targets' id='targets' value='{html.escape(default_targets)}' "
+                "placeholder='light.living_room, light.bedroom' />"
+            )
 
         body = f"""<!doctype html>
 <html>
@@ -80,22 +141,24 @@ class Handler(BaseHTTPRequestHandler):
     body {{ font-family: sans-serif; margin: 24px; max-width: 760px; }}
     .card {{ border: 1px solid #ddd; border-radius: 10px; padding: 16px; }}
     label {{ display: block; margin: 12px 0 6px; font-weight: 600; }}
-    input, select {{ width: 100%; padding: 10px; }}
+        input, select {{ width: 100%; padding: 10px; }}
     button {{ margin-top: 16px; padding: 10px 14px; cursor: pointer; }}
     .msg {{ margin-bottom: 12px; color: #1f6f3d; }}
+        .warn {{ margin-top: 8px; color: #a15b00; }}
   </style>
 </head>
 <body>
   <div class='card'>
     <h2>Scene Catalog</h2>
-    <p>Pick a scene and target lights (comma-separated entity ids).</p>
+        <p>Pick a scene and target lights.</p>
     <div class='msg'>{html.escape(message)}</div>
         <form method='post' action='apply'>
       <label for='scene'>Scene</label>
       <select name='scene' id='scene'>{scene_options}</select>
 
       <label for='targets'>Light targets</label>
-      <input name='targets' id='targets' value='{html.escape(default_targets)}' />
+            {selected_field}
+            <div class='warn'>{html.escape(lights_error)}</div>
 
       <button type='submit'>Apply Scene</button>
     </form>
@@ -129,15 +192,19 @@ class Handler(BaseHTTPRequestHandler):
         form = parse_qs(raw)
 
         scene = (form.get("scene", [""])[0] or "").strip().lower()
-        targets = (form.get("targets", [""])[0] or "").strip()
 
         if scene not in SCENES:
             self._render("Unknown scene selected.")
             return
 
-        entity_ids = [x.strip() for x in targets.split(",") if x.strip()]
+        raw_targets = [x.strip() for x in form.get("targets", []) if x.strip()]
+        if len(raw_targets) == 1 and "," in raw_targets[0]:
+            entity_ids = [x.strip() for x in raw_targets[0].split(",") if x.strip()]
+        else:
+            entity_ids = raw_targets
+
         if not entity_ids:
-            self._render("Please provide at least one light entity id.")
+            self._render("Please select at least one light.")
             return
 
         if not supervisor_token():
@@ -147,15 +214,18 @@ class Handler(BaseHTTPRequestHandler):
         try:
             status, _ = api_call_light_turn_on(entity_ids, scene)
             if 200 <= status < 300:
-                self._render(f"Applied '{SCENES[scene]['name']}' to {', '.join(entity_ids)}")
+                self._render(
+                    f"Applied '{SCENES[scene]['name']}' to {', '.join(entity_ids)}",
+                    selected_targets=entity_ids,
+                )
             else:
-                self._render(f"Call failed with status {status}")
+                self._render(f"Call failed with status {status}", selected_targets=entity_ids)
         except HTTPError as err:
-            self._render(f"Home Assistant API error: {err.code} {err.reason}")
+            self._render(f"Home Assistant API error: {err.code} {err.reason}", selected_targets=entity_ids)
         except URLError as err:
-            self._render(f"Network error: {err.reason}")
+            self._render(f"Network error: {err.reason}", selected_targets=entity_ids)
         except Exception as err:
-            self._render(f"Unexpected error: {err}")
+            self._render(f"Unexpected error: {err}", selected_targets=entity_ids)
 
 
 if __name__ == "__main__":
