@@ -1,9 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Add collapsible sections for the studio and builder panels
+- Replace the standard palette inputs with an ergonomic 2D gradient editor
+- Let existing lighting scenes be loaded back into the builder for editing
+- Add a randomize button to generate a fresh gradient automatically
+
 ## 0.3.0
 
-- Rename the visible app and integration labels to `Lighting Scene Studio`
-- Rename service labels to `Apply Lighting Scene` and related dynamic variants
+- Rename the visible app and integration labels to Lighting Scene Studio
+- Rename service labels to Apply Lighting Scene and related dynamic variants
 - Add a first custom scene builder directly in the app UI
 - Store custom scenes in the shared Home Assistant config folder so the integration can reuse them
 

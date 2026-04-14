@@ -1,6 +1,6 @@
 name: Lighting Scene Studio App
 slug: scene_catalog_v2
-version: "0.3.0"
+version: "0.4.0"
 description: Build and apply custom lighting scenes from a curated palette catalog
 url: "https://github.com/maqsystems/scene-catalog-app-repo/tree/main/scene_catalog"
 startup: application
