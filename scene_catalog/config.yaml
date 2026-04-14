@@ -1,14 +1,14 @@
-name: Scene Catalog App
+name: Lighting Scene Studio App
 slug: scene_catalog_v2
-version: "0.2.1"
-description: Apply simple curated light scenes from a small catalog
+version: "0.3.0"
+description: Build and apply custom lighting scenes from a curated palette catalog
 url: "https://github.com/maqsystems/scene-catalog-app-repo/tree/main/scene_catalog"
 startup: application
 boot: auto
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:palette
-panel_title: Scene Catalog
+panel_title: Lighting Scene Studio
 homeassistant_api: true
 hassio_api: false
 apparmor: false
@@ -19,7 +19,11 @@ arch:
   - armhf
 init: false
 map:
-  - share:rw
+  - type: homeassistant_config
+    read_only: false
+    path: /config
+  - type: share
+    read_only: false
 options:
   default_targets: "light.living_room"
 schema:

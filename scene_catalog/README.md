@@ -1,14 +1,15 @@
-# Scene Catalog App
+# Lighting Scene Studio App
 
-Minimal Home Assistant app (add-on) that provides an ingress page with a small scene catalog.
-You pick a scene and target lights, then it calls Home Assistant `light.turn_on` for you.
+Minimal Home Assistant app (add-on) that provides an ingress page with a lighting-scene catalog and a first custom scene builder.
+You pick or create a lighting scene, target lights, then apply it directly from the app.
 
 ## Features
 
 - Built-in palette catalog inspired by cinematic Hue-like moods
-- Fixed scenes distribute palette colors across selected lights
-- Dynamic scenes rotate palette distribution over time across the same lights
+- Fixed lighting scenes distribute palette colors across selected lights
+- Dynamic lighting scenes rotate palette distribution over time across the same lights
 - Simple ingress UI with light multi-select
+- First custom scene builder for creating and updating your own scenes
 
 ## Install
 

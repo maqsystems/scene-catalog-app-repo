@@ -1,10 +1,10 @@
 {
-  "title": "Scene Catalog Services",
+  "title": "Lighting Scene Studio Services",
   "config": {
     "step": {
       "user": {
-        "title": "Scene Catalog Services",
-        "description": "Enable scene services for automations."
+        "title": "Lighting Scene Studio Services",
+        "description": "Enable lighting scene services for automations."
       }
     },
     "abort": {

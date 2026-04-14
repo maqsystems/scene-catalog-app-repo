@@ -1,4 +1,4 @@
-# Scene Catalog Repository
+# Lighting Scene Studio Repository
 
 This repository contains two deliverables:
 
@@ -8,9 +8,10 @@ This repository contains two deliverables:
 ## Install the integration (recommended for automations)
 
 1. Add this repository in HACS as a custom repository of type `integration`.
-2. Install `Scene Catalog Services`.
+2. Install `Lighting Scene Studio Services`.
 3. Restart Home Assistant.
-4. Add integration `Scene Catalog Services` in Devices & Services.
+4. Add integration `Lighting Scene Studio Services` in Devices & Services.
+5. Use the app page to create or update your own custom lighting scenes if needed.
 
 Important:
 If you install only the app (`scene_catalog/`) from Supervisor, Home Assistant services are not automatically registered.
@@ -41,4 +42,4 @@ Service behavior notes:
 
 ## Install the app (optional UI)
 
-If you also want the ingress app UI, add this repository in Home Assistant app repositories and install `Scene Catalog App`.
+If you also want the ingress app UI, add this repository in Home Assistant app repositories and install `Lighting Scene Studio App`.

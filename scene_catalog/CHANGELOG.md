@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- Rename the visible app and integration labels to `Lighting Scene Studio`
+- Rename service labels to `Apply Lighting Scene` and related dynamic variants
+- Add a first custom scene builder directly in the app UI
+- Store custom scenes in the shared Home Assistant config folder so the integration can reuse them
+
 ## 0.2.1
 
 - Fix Python indentation in scene apply loop causing startup crash (`IndentationError`)

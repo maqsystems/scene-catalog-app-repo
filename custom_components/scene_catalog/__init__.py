@@ -27,7 +27,7 @@ from .const import (
     SERVICE_STOP_ALL_DYNAMIC_SCENES,
     SERVICE_STOP_DYNAMIC_SCENE,
 )
-from .scenes import DYNAMIC_SCENE_KEYS, FIXED_SCENE_KEYS, SCENES
+from .scenes import get_all_scenes, get_dynamic_scene_keys, get_fixed_scene_keys, get_scene
 
 APPLY_SCENE_SCHEMA = vol.Schema(
     {
@@ -76,7 +76,7 @@ class DynamicSceneManager:
         transition: int | None,
         brightness: int | None,
     ) -> str:
-        if scene_key not in DYNAMIC_SCENE_KEYS:
+        if scene_key not in get_dynamic_scene_keys(self.hass):
             raise vol.Invalid(f"Scene '{scene_key}' is not dynamic")
 
         dynamic_id = str(uuid.uuid4())
@@ -264,14 +264,15 @@ def _scene_palette_color(palette: list[list[float]], index: int, total: int, pha
     return palette[palette_index]
 
 
-def _scene_kind(scene_key: str) -> str:
-    if scene_key not in SCENES:
+def _scene_kind(hass: HomeAssistant, scene_key: str) -> str:
+    scenes = get_all_scenes(hass)
+    if scene_key not in scenes:
         raise vol.Invalid(f"Unknown scene '{scene_key}'")
-    return SCENES[scene_key].get("kind", "fixed")
+    return scenes[scene_key].get("kind", "fixed")
 
 
-def _validate_scene_kind(scene_key: str, expected_kind: str) -> None:
-    kind = _scene_kind(scene_key)
+def _validate_scene_kind(hass: HomeAssistant, scene_key: str, expected_kind: str) -> None:
+    kind = _scene_kind(hass, scene_key)
     if kind != expected_kind:
         raise vol.Invalid(
             f"Scene '{scene_key}' is '{kind}', expected '{expected_kind}'"
@@ -287,10 +288,11 @@ async def apply_scene_to_entities(
     transition_override: int | None = None,
     brightness_override: int | None = None,
 ) -> dict:
-    if scene_key not in SCENES:
+    scenes = get_all_scenes(hass)
+    if scene_key not in scenes:
         raise vol.Invalid(f"Unknown scene '{scene_key}'")
 
-    scene = SCENES[scene_key]
+    scene = get_scene(hass, scene_key)
     palette = scene.get("palette", [])
     brightness = int(brightness_override if brightness_override is not None else scene.get("brightness", 180))
     transition = float(transition_override if transition_override is not None else scene.get("transition", 1))
@@ -344,7 +346,7 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
 
     async def _apply_scene(call: ServiceCall):
         scene_key = call.data[ATTR_SCENE]
-        _validate_scene_kind(scene_key, "fixed")
+        _validate_scene_kind(hass, scene_key, "fixed")
 
         target = call.data[ATTR_TARGET]
         transition = call.data.get(ATTR_TRANSITION)
@@ -368,10 +370,10 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
 
     async def _start_dynamic_scene(call: ServiceCall):
         scene_key = call.data[ATTR_SCENE]
-        _validate_scene_kind(scene_key, "dynamic")
+        _validate_scene_kind(hass, scene_key, "dynamic")
 
         target = call.data[ATTR_TARGET]
-        interval = max(1, int(call.data.get(ATTR_INTERVAL, SCENES.get(scene_key, {}).get("dynamic_interval", 8))))
+        interval = max(1, int(call.data.get(ATTR_INTERVAL, get_scene(hass, scene_key).get("dynamic_interval", 8))))
         transition = call.data.get(ATTR_TRANSITION)
         brightness = call.data.get(ATTR_BRIGHTNESS)
         entity_ids = resolve_targets(hass, target)
@@ -395,10 +397,12 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
         return {"stopped_count": stopped_count}
 
     async def _list_scenes(call: ServiceCall):
+        all_scenes = get_all_scenes(hass)
+
         def scene_payload(keys: list[str]) -> list[dict]:
             payload = []
             for key in keys:
-                value = SCENES[key]
+                value = all_scenes[key]
                 payload.append(
                     {
                         "key": key,
@@ -414,8 +418,8 @@ async def _async_setup_services(hass: HomeAssistant) -> bool:
             return payload
 
         return {
-            "fixed_scenes": scene_payload(FIXED_SCENE_KEYS),
-            "dynamic_scenes": scene_payload(DYNAMIC_SCENE_KEYS),
+            "fixed_scenes": scene_payload(get_fixed_scene_keys(hass)),
+            "dynamic_scenes": scene_payload(get_dynamic_scene_keys(hass)),
             "dynamic": manager.as_dict(),
         }
 
